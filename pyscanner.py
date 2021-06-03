@@ -74,7 +74,8 @@ def connScan(tgtHost, tgtPort, quiet=False, vuln=False):
           except:
             print(f'{FAIL}[-] ERROR:{RESET} Unable to read HEADERS')
         else:
-          if len(raw.decode('utf-8')) > 0: print(f"{INFO}[INFO] {RESET}{raw.decode('utf-8')}")
+          if len(raw) != 0: 
+            print(f"{INFO}[INFO] {RESET}{raw.decode('utf-8')}")
           if vuln:
                 print(f"{INFO}[INFO]{RESET} Possible Vulnerabilities:|\n\
                 ________________| {SUCCESS}exploit-db.com")

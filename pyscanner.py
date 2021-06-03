@@ -1,5 +1,5 @@
 
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from __future__ import division
 __version__ = "0.3.3"
@@ -74,15 +74,12 @@ def connScan(tgtHost, tgtPort, quiet=False, vuln=False):
           except:
             print(f'{FAIL}[-] ERROR:{RESET} Unable to read HEADERS')
         else:
-          print(f"{INFO}[INFO] {RESET}{raw.decode('utf-8')}")
-          # OpenSSH
+          if len(raw.decode('utf-8')) > 0: print(f"{INFO}[INFO] {RESET}{raw.decode('utf-8')}")
           if vuln:
                 print(f"{INFO}[INFO]{RESET} Possible Vulnerabilities:|\n\
                 ________________| {SUCCESS}exploit-db.com")
                 if "python" in resp.headers["Server"].lower():
                   findExploitResults("files_exploits.csv", "./exploitdb", ["openssh"])
-                elif "apache" in resp.headers["Server"].lower():
-                  findExploitResults("files_exploits.csv", "./exploitdb", ["apache"])
       except:
         print(f"{FAIL}[-] ERROR:{RESET} Could not send packets")
     connSkt.close()

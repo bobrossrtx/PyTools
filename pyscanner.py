@@ -1,8 +1,6 @@
-
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from __future__ import division
-__version__ = "0.3.3"
+progVersion = "0.3.3"
 
 import optparse
 import socket
@@ -56,7 +54,6 @@ def connScan(tgtHost, tgtPort, quiet=False, vuln=False):
         raw = connSkt.recv(2048)
         if "doctype html" in raw.decode('utf-8').lower():
           try:
-            tgtIP = gethostbyname(tgtHost)
             resp = requests.get(f"http://{tgtHost}:{tgtPort}")
             print(f'{INFO}[INFO]{RESET} HTTP Headers:| {INFO}\"http://{tgtHost}:{tgtPort}/\"')
             if quiet == False:
@@ -74,13 +71,13 @@ def connScan(tgtHost, tgtPort, quiet=False, vuln=False):
           except:
             print(f'{FAIL}[-] ERROR:{RESET} Unable to read HEADERS')
         else:
-          if len(raw) != 0: 
-            print(f"{INFO}[INFO] {RESET}{raw.decode('utf-8')}")
-          if vuln:
-                print(f"{INFO}[INFO]{RESET} Possible Vulnerabilities:|\n\
+          if len(raw) != 0:
+            print(f"{INFO}[INFO] {RESET}{raw.decode('utf-8')}".replace("\r\n", ""))
+            if vuln:
+                  print(f"{INFO}[INFO]{RESET} Possible Vulnerabilities:|\n\
                 ________________| {SUCCESS}exploit-db.com")
-                if "python" in resp.headers["Server"].lower():
-                  findExploitResults("files_exploits.csv", "./exploitdb", ["openssh"])
+                  if "openssh" in raw.decode('utf-8').lower():
+                    findExploitResults("files_exploits.csv", "./exploitdb", ["openssh"])
       except:
         print(f"{FAIL}[-] ERROR:{RESET} Could not send packets")
     connSkt.close()
@@ -157,4 +154,4 @@ def main(version: str, progName: str) -> int:
 
 
 if __name__ == '__main__':
-  main(__version__, "pyscanner")
+  main(progVersion, "pyscanner")

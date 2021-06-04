@@ -12,6 +12,8 @@ colorama.init(autoreset=True)
 from re import sub
 import csv
 import logging
+from threading import Thread, Semaphore
+from time import sleep
 
 INFO = Fore.YELLOW
 SUCCESS = Fore.GREEN
@@ -20,6 +22,7 @@ SETTING = Fore.LIGHTCYAN_EX
 RESET = Fore.RESET
 EXTRA = Fore.LIGHTGREEN_EX
 
+
 def findExploitResults(file_in, path_in, name_in="exploits", log=False):
   if type(name_in) == str:
     if "paper" in name_in.lower(): url = "papers"
@@ -27,7 +30,6 @@ def findExploitResults(file_in, path_in, name_in="exploits", log=False):
     elif "exploits" in name_in.lower(): url = "exploits"
     else: url = name_in
   else: url = name_in
-
 
   with open(f'{path_in}/{file_in}', "r", encoding='cp850') as file:
     csvFile = csv.reader(file)
@@ -39,20 +41,19 @@ def findExploitResults(file_in, path_in, name_in="exploits", log=False):
             a = a.lower()
             if a in i:
               print(f"               | {i}")
-              if log:
-                logging.info(f"               | {i}")
+              if log: logging.info(f"               | {i}")
 
 def printVersion(version, progName):
   print(f"{SETTING}{progName.title()} Version {EXTRA}~ {Fore.LIGHTRED_EX}{Style.BRIGHT}V{version}^")
 
-
-def connScan(tgtHost, tgtPort, quiet=False, vuln=False, log=False):
+screenLock = Semaphore(value=5)
+def connScan(tgtHost, tgtPort, quiet=False, vuln=False, log=False, superQuiet=False):
   try:
     connSkt = socket(AF_INET, SOCK_STREAM)
     connSkt.connect((tgtHost, tgtPort))
     print(f'{SUCCESS}[+] OPEN: {SETTING}{tgtPort}{RESET}/tcp')
-    if log:
-      logging.info(f"[+] OPEN: {tgtPort}/tcp")
+    screenLock.acquire()
+    if log: logging.info(f"[+] OPEN: {tgtPort}/tcp")
     if not quiet:
       try:
         connSkt.send("PyScanner\r\n".encode('utf-8'))
@@ -66,16 +67,13 @@ def connScan(tgtHost, tgtPort, quiet=False, vuln=False, log=False):
               print(f"""             Server | {INFO}\"{resp.headers["Server"]}{RESET}\"
        Content-type | {INFO}\"{resp.headers["Content-type"]}\"{RESET}
      Content-Length |  {INFO}{resp.headers["Content-Length"]}""")
-              if log:
-                logging.info(f"""             Server | \"{resp.headers["Server"]}\"
+              if log: logging.info(f"""             Server | \"{resp.headers["Server"]}\"
        Content-type | \"{resp.headers["Content-type"]}\"
      Content-Length |  {resp.headers["Content-Length"]}""")
-
               if vuln:
                 print(f"{INFO}[INFO]{RESET} Possible Vulnerabilities:|\n\
                 ________________| {SUCCESS}exploit-db.com")
-                if log:
-                  logging.info("[INFO] Possible Vulnerabilities:|\n\
+                if log: logging.info("[INFO] Possible Vulnerabilities:|\n\
                 ________________| exploit-db.com")
                 if "python" in resp.headers["Server"].lower():
                   findExploitResults("files_exploits.csv", "./exploitdb", ["python/webapps"], log=log)
@@ -84,58 +82,55 @@ def connScan(tgtHost, tgtPort, quiet=False, vuln=False, log=False):
             else: pass
           except:
             print(f'{FAIL}[-] ERROR:{RESET} Unable to read HEADERS')
-            if log:
-                logging.info(f"[-] ERROR: Unable to read HEADERS")
+            if log: logging.info(f"[-] ERROR: Unable to read HEADERS")
         else:
           if len(raw) != 0:
             print(f"{INFO}[INFO] {RESET}{raw.decode('utf-8')}".replace("\r\n", ""))
-            if log:
-              logging.info(f"[INFO] {raw.decode('utf-8')}".replace("\r\n", ""))
+            if log: logging.info(f"[INFO] {raw.decode('utf-8')}".replace("\r\n", ""))
             if vuln:
                 print(f"{INFO}[INFO]{RESET} Possible Vulnerabilities:|\n\
                 ________________| {SUCCESS}exploit-db.com")
-                if log:
-                  logging.info("[INFO] Possible Vulnerabilities:|\n\
+                if log: logging.info("[INFO] Possible Vulnerabilities:|\n\
                 ________________| exploit-db.com")
                 if "openssh" in raw.decode('utf-8').lower():
                   findExploitResults("files_exploits.csv", "./exploitdb", ["openssh"], log=log)
       except:
         print(f"{FAIL}[-] ERROR:{RESET} Could not send packets")
-        if log:
-          logging.info(f"[-] ERROR: Could not send packets")
-    connSkt.close()
+        if log: logging.info(f"[-] ERROR: Could not send packets")
   except:
-    print(f'{FAIL}[-] CLOSED: {SETTING}{tgtPort}{RESET}/tcp',)
-    if log:
-      logging.info(f"[-] CLOSED: {tgtPort}/tcp",)
+    if not superQuiet:
+      screenLock.acquire()
+      print(f'{FAIL}[-] CLOSED: {SETTING}{tgtPort}{RESET}/tcp',)
+      if log: logging.info(f"[-] CLOSED: {tgtPort}/tcp",)
+  finally:
+    screenLock.release()
+    connSkt.close()
 
-
-def portScan(tgtHost, tgtPorts, quiet=False, vuln=False, log=False):
+def portScan(tgtHost, tgtPorts, quiet=False, vuln=False, log=False, superQuiet=False):
   try:
     tgtIP = gethostbyname(tgtHost)
   except:
     print(f'{FAIL}[-] ERROR: Cannot resolve \'{tgtHost}\'{RESET}: Unknown host')
-    if log:
-      logging.info(f"[-] ERROR: Cannot resolve \'{tgtHost}\': Unknown host")
+    if log: logging.info(f"[-] ERROR: Cannot resolve \'{tgtHost}\': Unknown host")
     return
   try:
     tgtName = gethostbyaddr(tgtIP)
     print(f'{INFO}[INFO] Scan Result for: {SETTING}{tgtName[0]}{RESET}')
-    if log:
-      logging.info(f"[INFO] Scan Result for: {tgtName[0]}")
+    if log: logging.info(f"[INFO] Scan Result for: {tgtName[0]}")
   except:
     print(f'{INFO}[INFO] Scan Result for: {tgtIP}')
-    if log:
-      logging.info(f"[INFO] Scan Result for: {tgtIP}")
+    if log: logging.info(f"[INFO] Scan Result for: {tgtIP}")
 
   setdefaulttimeout(1)
   for tgtPort in tgtPorts:
-    if not quiet:
+    sleep(0.0000000000000000000000001)
+    if not quiet or not superQuiet:
       print(f"{INFO}[INFO] Scanning port: {SETTING}{tgtPort}{RESET}")
-      if log:
-        logging.info(f"[INFO] Scanning port: {tgtPort}")
-    connScan(tgtHost, int(tgtPort), quiet=quiet, vuln=vuln, log=log)
-
+      if log: logging.info(f"[INFO] Scanning port: {tgtPort}")
+    t = Thread(target=connScan, args=(tgtHost, int(tgtPort), quiet, vuln, log, superQuiet))
+    t.start()
+      
+    # connScan(tgtHost, int(tgtPort), quiet, vuln=vuln, log=log, superQuiet=superQuiet)
 
 def main(version, progName) -> int:
   # Initialize parser
@@ -157,6 +152,9 @@ def main(version, progName) -> int:
   logging.basicConfig(level=logging.INFO, filename=options.outputFile, format="%(message)s")
 
   ## Options
+  superQuiet = False
+  allPorts = False
+
   # Targets
   tgtHost = options.tgtHost
   tgtPorts = list()
@@ -165,10 +163,16 @@ def main(version, progName) -> int:
     quiet = options.quiet
   else:
     quiet = True
+    superQuiet = True
+    allPorts = True
     min_ports = 0
-    max_ports = 10
-    for port in range(min_ports, max_ports + 1):
-      tgtPorts.append(port)
+    max_ports = 10000
+    def allPorts():
+      for port in range(min_ports, max_ports + 1):
+        tgtPorts.append(port)
+    # t = Thread(target=allPorts)
+    # t.start()
+    allPorts()
 
   if (options.version):
     printVersion(version, progName)
@@ -183,25 +187,23 @@ def main(version, progName) -> int:
 
   # Extras
   if (outFile):
-    print(f"{INFO}[INFO]{EXTRA} [EXTRA]{RESET} Output File \"{outFile}\"")
+    print(f"{INFO}[INFO]{EXTRA}[EXTRA]{RESET} Output File \"{outFile}\"")
     logging.info(f"[INFO] [EXTRA] Output File \"{outFile}\"")
     log = True
   if (quiet):
-    print(f"{INFO}[INFO]{EXTRA} [EXTRA]{RESET} Quiet mode enabled - Disabling STDOUT")
-    if (log):
-      logging.info("[INFO] [EXTRA] Quiet mode enabled - Disabling STDOUT")
+    print(f"{INFO}[INFO]{EXTRA}[EXTRA]{RESET} Quiet mode enabled - Disabling STDOUT")
+    if (log): logging.info("[INFO] [EXTRA] Quiet mode enabled - Disabling STDOUT")
   if (vuln):
-    print(f"{INFO}[INFO]{EXTRA} [EXTRA]{RESET} Vuln mode enabled - Searching for possible vulnerabilities")
-    if (log):
-      logging.info("[INFO] [EXTRA] Vuln mode enabled - Searching for possible vulnerabilities")
+    print(f"{INFO}[INFO]{EXTRA}[EXTRA]{RESET} Vuln mode enabled - Searching for possible vulnerabilities")
+    if (log): logging.info("[INFO] [EXTRA] Vuln mode enabled - Searching for possible vulnerabilities")
+  if (allPorts):
+    print(f"{INFO}[INFO]{EXTRA}[EXTRA]{RESET} All Port Scan - Scanning all ports")
+    if (log): logging.info("[INFO] [EXTRA] All Port Scan - Scanning all ports")
 
   # Scan the hosts
-  portScan(tgtHost, tgtPorts, quiet=quiet, vuln=vuln, log=log)
-
-  # Closes outFile if open
+  portScan(tgtHost, tgtPorts, quiet=quiet, vuln=vuln, log=log, superQuiet=superQuiet)
 
   return 0
-
 
 if __name__ == '__main__':
   main(progVersion, "pyscanner")
